@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Absensi Kelas - Komting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] } } }
+    };
+  </script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 antialiased">
+
+  <!-- Header + ringkasan hitungan (tetap terlihat saat scroll) -->
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto max-w-2xl px-4 py-3">
+      <div class="flex items-baseline justify-between gap-3">
+        <h1 class="shrink-0 text-base font-bold">Absensi Kelas</h1>
+        <p id="courseLabel" class="min-w-0 truncate text-xs text-slate-500"></p>
+      </div>
+      <div id="counts" class="mt-2 grid grid-cols-4 gap-2" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-2xl px-4 pb-32 pt-4">
+
+    <!-- Info pertemuan -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <label class="block">
+        <span class="text-sm font-semibold text-slate-700">Mata kuliah</span>
+        <input id="course" type="text" maxlength="60" placeholder="Contoh: Agama" autocomplete="off"
+          class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+      </label>
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Pertemuan ke-</span>
+          <input id="meeting" type="number" min="1" inputmode="numeric" placeholder="1"
+            class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+        </label>
+        <label class="block">
+          <span class="text-sm font-semibold text-slate-700">Tanggal</span>
+          <input id="date" type="date"
+            class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+        </label>
+      </div>
+      <button id="manageBtn" type="button"
+        class="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition active:scale-[0.98] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200">
+        Kelola daftar mahasiswa
+      </button>
+    </section>
+
+    <!-- Daftar mahasiswa -->
+    <ol id="list" class="mt-4 space-y-2"></ol>
+
+    <!-- Laporan -->
+    <section id="report" class="mt-6 hidden scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="text-base font-bold">Laporan siap dikirim</h2>
+      <p class="mt-1 text-sm text-slate-500">Teks di bawah bisa diedit sebelum disalin.</p>
+      <textarea id="reportText" rows="18"
+        class="mt-3 w-full rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm leading-relaxed focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"></textarea>
+      <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button id="copyBtn" type="button"
+          class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+          Salin ke WhatsApp
+        </button>
+        <button id="downloadBtn" type="button"
+          class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition active:scale-[0.98] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200">
+          Download Rekap (.txt)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bar aksi bawah -->
+  <div class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur" style="padding-bottom: env(safe-area-inset-bottom, 0px)">
+    <div class="mx-auto flex max-w-2xl gap-2 px-4 py-3">
+      <button id="resetBtn" type="button"
+        class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition active:scale-[0.98] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200">
+        Reset Semua
+      </button>
+      <button id="generateBtn" type="button"
+        class="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+        Generate Laporan
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel kelola mahasiswa -->
+  <div id="manager" class="fixed inset-0 z-40 hidden items-end justify-center bg-slate-900/40 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="managerTitle">
+    <div class="flex w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl" style="height: 85vh; height: 85dvh;">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <h2 id="managerTitle" class="text-base font-bold">Kelola mahasiswa</h2>
+        <button id="managerClose" type="button"
+          class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+          Selesai
+        </button>
+      </div>
+
+      <div class="border-b border-slate-200 px-4 py-3">
+        <label for="addName" class="text-sm font-semibold text-slate-700">Tambah mahasiswa</label>
+        <div class="mt-1 flex gap-2">
+          <input id="addName" type="text" maxlength="60" placeholder="Contoh: Budi" autocomplete="off"
+            class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <button id="addBtn" type="button"
+            class="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300">
+            Tambah
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">Ketuk nama untuk mengubahnya. Perubahan tersimpan otomatis di browser ini.</p>
+      </div>
+
+      <ol id="managerList" class="flex-1 space-y-2 overflow-y-auto px-4 py-3"></ol>
+
+      <div class="border-t border-slate-200 px-4 py-3" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px))">
+        <button id="restoreBtn" type="button" class="text-sm font-semibold text-slate-500 underline underline-offset-2 hover:text-slate-700">
+          Kembalikan daftar awal dari kode
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog konfirmasi (pengganti confirm bawaan browser) -->
+  <div id="confirmBox" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/50 px-6" role="alertdialog" aria-modal="true" aria-labelledby="confirmText">
+    <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+      <p id="confirmText" class="text-base font-semibold leading-snug text-slate-800"></p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="confirmNo" type="button"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200">
+          Batal
+        </button>
+        <button id="confirmYes" type="button"
+          class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+          Ya
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" role="status" aria-live="polite"
+    class="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 opacity-0 transition-opacity duration-200">
+    <span id="toastText" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-lg"></span>
+  </div>
+
+  <script>
+    /* ============================================================
+       PENGATURAN — daftar awal mahasiswa (30 nama dummy).
+       Setelah dibuka, nama bisa diubah/ditambah lewat tombol
+       "Kelola daftar mahasiswa" tanpa mengedit kode.
+       ============================================================ */
+    const DEFAULT_COURSE = 'Pengantar Teknik Komputer'; // nama mata kuliah awal (bisa diubah di aplikasi)
+
+    const STUDENTS = [
+      'Ahmad Fauzi',    'Budi Santoso',    'Siti Rahmawati',  'Dewi Lestari',     'Eko Prasetyo',
+      'Fitriani Putri', 'Gilang Ramadhan', 'Hana Safitri',    'Indra Wijaya',     'Juwita Sari',
+      'Kevin Pratama',  'Lina Marlina',    'Muhammad Rizki',  'Nadia Azzahra',    'Okta Nugraha',
+      'Putu Wirawan',   'Qori Amalia',     'Rudi Hartono',    'Sinta Maharani',   'Teguh Setiawan',
+      'Umi Kulsum',     'Vina Anggraini',  'Wahyu Hidayat',   'Yoga Permana',     'Zahra Nabila',
+      'Agus Salim',     'Bayu Aji',        'Citra Kirana',    'Dimas Anggara',    'Farhan Maulana'
+    ];
+    /* ============================================================ */
+
+    const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const STORE_KEY = 'presensi-komting-v2';
+
+    // Kelas Tailwind ditulis lengkap agar terdeteksi oleh CDN.
+    const STATUS = {
+      hadir: { label: 'Hadir', icon: '✅', border: 'border-l-emerald-500', on: 'peer-checked:bg-emerald-600 peer-checked:text-white', chip: 'bg-emerald-50 text-emerald-700' },
+      izin:  { label: 'Izin',  icon: '⚠️', border: 'border-l-amber-500',   on: 'peer-checked:bg-amber-500 peer-checked:text-white',   chip: 'bg-amber-50 text-amber-700' },
+      sakit: { label: 'Sakit', icon: '🤒', border: 'border-l-sky-500',     on: 'peer-checked:bg-sky-600 peer-checked:text-white',     chip: 'bg-sky-50 text-sky-700' },
+      alpa:  { label: 'Alpa',  icon: '❌', border: 'border-l-rose-500',    on: 'peer-checked:bg-rose-600 peer-checked:text-white',    chip: 'bg-rose-50 text-rose-700' }
+    };
+    const KEYS = Object.keys(STATUS);
+    const BORDERS = KEYS.map(k => STATUS[k].border);
+
+    const $ = id => document.getElementById(id);
+    const els = {
+      list: $('list'), counts: $('counts'), meeting: $('meeting'), date: $('date'),
+      report: $('report'), reportText: $('reportText'), toast: $('toast'), toastText: $('toastText'),
+      manager: $('manager'), managerList: $('managerList'), addName: $('addName'), manageBtn: $('manageBtn')
+    };
+
+    /* ---------- State ---------- */
+    function todayISO() {
+      const d = new Date();
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+
+    function defaultStudents() {
+      return STUDENTS.map(name => ({ name, status: 'hadir', note: '' }));
+    }
+
+    function loadState() {
+      const base = { course: DEFAULT_COURSE, meeting: '1', date: todayISO(), students: defaultStudents() };
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+        if (saved) {
+          if (saved.meeting) base.meeting = saved.meeting;
+          if (saved.date) base.date = saved.date;
+          if (typeof saved.course === 'string') base.course = saved.course;
+          if (Array.isArray(saved.students)) {
+            base.students = saved.students
+              .filter(s => s && typeof s.name === 'string' && s.name.trim())
+              .map(s => ({
+                name: s.name,
+                status: KEYS.includes(s.status) ? s.status : 'hadir',
+                note: typeof s.note === 'string' ? s.note : ''
+              }));
+          }
+        }
+      } catch (e) { /* penyimpanan tidak tersedia, pakai daftar awal */ }
+      return base;
+    }
+
+    function saveState() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* abaikan */ }
+    }
+
+    const state = loadState();
+    let listDirty = false; // true jika daftar mahasiswa berubah saat panel kelola dibuka
+
+    /* ---------- Util ---------- */
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function countStatus() {
+      const c = { hadir: 0, izin: 0, sakit: 0, alpa: 0 };
+      state.students.forEach(s => c[s.status]++);
+      return c;
+    }
+
+    /* ---------- Render daftar presensi ---------- */
+    function rowHTML(st, i) {
+      const radios = KEYS.map(k => `
+          <label class="relative block">
+            <input type="radio" class="peer sr-only" name="s${i}" value="${k}" data-i="${i}" ${st.status === k ? 'checked' : ''}>
+            <span class="block cursor-pointer select-none rounded-lg py-2 text-center text-[13px] font-semibold text-slate-500 transition peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400 ${STATUS[k].on}">${STATUS[k].label}</span>
+          </label>`).join('');
+
+      return `
+        <li id="row-${i}" class="rounded-xl border border-l-4 border-slate-200 bg-white p-3 shadow-sm ${STATUS[st.status].border}">
+          <div class="flex items-baseline gap-2">
+            <span class="w-6 shrink-0 text-sm tabular-nums text-slate-400">${i + 1}</span>
+            <span class="text-[15px] font-semibold leading-snug">${escapeHTML(st.name)}</span>
+          </div>
+          <fieldset class="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
+            <legend class="sr-only">Status kehadiran ${escapeHTML(st.name)}</legend>
+            ${radios}
+          </fieldset>
+          <input type="text" data-note="${i}" maxlength="80" value="${escapeHTML(st.note)}"
+            placeholder="Keterangan izin (opsional)"
+            class="${st.status === 'izin' ? '' : 'hidden '}mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200">
+        </li>`;
+    }
+
+    function renderList() {
+      if (!state.students.length) {
+        els.list.innerHTML = `
+          <li class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            Belum ada mahasiswa. Ketuk "Kelola daftar mahasiswa" untuk menambahkan nama.
+          </li>`;
+      } else {
+        els.list.innerHTML = state.students.map(rowHTML).join('');
+      }
+      els.manageBtn.textContent = `Kelola daftar mahasiswa (${state.students.length})`;
+    }
+
+    function renderCounts() {
+      const c = countStatus();
+      els.counts.innerHTML = KEYS.map(k => `
+        <div class="rounded-lg px-2 py-1.5 text-center ${STATUS[k].chip}">
+          <div class="text-lg font-bold leading-none tabular-nums">${c[k]}</div>
+          <div class="mt-0.5 text-[11px] font-medium">${STATUS[k].label}</div>
+        </div>`).join('');
+    }
+
+    /* ---------- Interaksi daftar presensi ---------- */
+    els.list.addEventListener('change', e => {
+      const input = e.target;
+      if (input.type !== 'radio') return;
+      const i = Number(input.dataset.i);
+      state.students[i].status = input.value;
+
+      const row = $('row-' + i);
+      row.classList.remove(...BORDERS);
+      row.classList.add(STATUS[input.value].border);
+      row.querySelector('[data-note]').classList.toggle('hidden', input.value !== 'izin');
+
+      renderCounts();
+      saveState();
+    });
+
+    els.list.addEventListener('input', e => {
+      if (e.target.dataset.note === undefined) return;
+      state.students[Number(e.target.dataset.note)].note = e.target.value;
+      saveState();
+    });
+
+    els.meeting.addEventListener('input', () => { state.meeting = els.meeting.value; saveState(); });
+    $('course').addEventListener('input', () => { state.course = $('course').value; renderCourseLabel(); saveState(); });
+    els.date.addEventListener('input', () => { state.date = els.date.value; saveState(); });
+
+    /* ---------- Kelola mahasiswa ---------- */
+    function managerRowHTML(st, i) {
+      const name = escapeHTML(st.name);
+      return `
+        <li class="flex items-center gap-2">
+          <span class="w-7 shrink-0 text-right text-sm tabular-nums text-slate-400">${i + 1}</span>
+          <input type="text" data-name="${i}" value="${name}" maxlength="60" aria-label="Nama mahasiswa nomor ${i + 1}"
+            class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-base focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <button type="button" data-del="${i}" aria-label="Hapus ${name}"
+            class="shrink-0 rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+            Hapus
+          </button>
+        </li>`;
+    }
+
+    function renderManager() {
+      els.managerList.innerHTML = state.students.length
+        ? state.students.map(managerRowHTML).join('')
+        : '<li class="py-6 text-center text-sm text-slate-500">Belum ada mahasiswa. Tambahkan nama di atas.</li>';
+    }
+
+    function openManager() {
+      listDirty = false;
+      renderManager();
+      els.manager.classList.remove('hidden');
+      els.manager.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+      els.addName.focus();
+    }
+
+    function closeManager() {
+      els.manager.classList.add('hidden');
+      els.manager.classList.remove('flex');
+      document.body.classList.remove('overflow-hidden');
+      renderList();
+      renderCounts();
+      if (listDirty) els.report.classList.add('hidden'); // laporan lama sudah tidak sesuai
+      listDirty = false;
+      els.manageBtn.focus();
+    }
+
+    function addStudent() {
+      const name = els.addName.value.trim().replace(/\s+/g, ' ');
+      if (!name) { showToast('Tulis nama dulu.', true); els.addName.focus(); return; }
+      const dup = state.students.some(s => s.name.toLowerCase() === name.toLowerCase());
+      state.students.push({ name, status: 'hadir', note: '' });
+      listDirty = true;
+      saveState();
+      els.addName.value = '';
+      renderManager();
+      els.managerList.scrollTop = els.managerList.scrollHeight;
+      showToast(dup ? `${name} ditambahkan (sudah ada nama yang sama).` : `${name} ditambahkan.`);
+      els.addName.focus();
+    }
+
+    $('manageBtn').addEventListener('click', openManager);
+    $('managerClose').addEventListener('click', closeManager);
+    $('addBtn').addEventListener('click', addStudent);
+    els.addName.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addStudent(); } });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (!$('confirmBox').classList.contains('hidden')) { closeConfirm(false); return; }
+      if (!els.manager.classList.contains('hidden')) closeManager();
+    });
+
+    // Ubah nama langsung (tersimpan saat mengetik)
+    els.managerList.addEventListener('input', e => {
+      if (e.target.dataset.name === undefined) return;
+      const value = e.target.value.trim();
+      if (!value) return; // nama kosong tidak disimpan; dikembalikan saat selesai mengetik
+      state.students[Number(e.target.dataset.name)].name = value;
+      listDirty = true;
+      saveState();
+    });
+
+    els.managerList.addEventListener('change', e => {
+      if (e.target.dataset.name === undefined) return;
+      const st = state.students[Number(e.target.dataset.name)];
+      if (!e.target.value.trim()) {
+        e.target.value = st.name;
+        showToast('Nama tidak boleh kosong. Gunakan Hapus untuk menghapus.', true);
+      }
+    });
+
+    els.managerList.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-del]');
+      if (!btn) return;
+      const i = Number(btn.dataset.del);
+      const name = state.students[i].name;
+      if (!(await askConfirm(`Hapus ${name} dari daftar?`, 'Hapus'))) return;
+      state.students.splice(i, 1);
+      listDirty = true;
+      saveState();
+      renderManager();
+      showToast(`${name} dihapus.`);
+    });
+
+    $('restoreBtn').addEventListener('click', async () => {
+      if (!(await askConfirm(`Kembalikan daftar ke ${STUDENTS.length} nama awal dari kode? Nama yang sudah kamu ubah atau tambah akan hilang.`, 'Kembalikan'))) return;
+      state.students = defaultStudents();
+      listDirty = true;
+      saveState();
+      renderManager();
+      showToast('Daftar awal dikembalikan.');
+    });
+
+    /* ---------- Laporan ---------- */
+    function formatDate(iso) {
+      if (!iso) return '';
+      const [y, m, d] = iso.split('-').map(Number);
+      return `${d} ${MONTHS[m - 1]} ${y}`;
+    }
+
+    function buildReport() {
+      const groups = { hadir: [], izin: [], sakit: [], alpa: [] };
+      state.students.forEach(s => {
+        let text = s.name;
+        const note = s.note.trim();
+        if (s.status === 'izin' && note) text += ` (${note})`;
+        groups[s.status].push(text);
+      });
+
+      const block = k => {
+        const list = groups[k].length
+          ? groups[k].map((t, i) => `${i + 1}. ${t}`).join('\n')
+          : '-';
+        return `${STATUS[k].icon} ${STATUS[k].label} (${groups[k].length} orang):\n${list}`;
+      };
+
+      const line = '----------------------------------';
+      return [
+        `📌 LAPORAN ABSENSI ${state.course.trim().toUpperCase()}`,
+        `📅 Pertemuan: ${state.meeting} - ${formatDate(state.date)}`,
+        line,
+        block('hadir'),
+        '',
+        block('izin'),
+        '',
+        block('sakit'),
+        '',
+        block('alpa'),
+        line,
+        `Total Kehadiran: ${groups.hadir.length}/${state.students.length} Mahasiswa`
+      ].join('\n');
+    }
+
+    $('generateBtn').addEventListener('click', () => {
+      if (!state.students.length) { showToast('Tambahkan mahasiswa dulu.', true); return; }
+      if (!state.course.trim()) { showToast('Isi nama mata kuliah dulu.', true); $('course').focus(); return; }
+      if (!String(state.meeting).trim()) { showToast('Isi nomor pertemuan dulu.', true); els.meeting.focus(); return; }
+      if (!state.date) { showToast('Pilih tanggal dulu.', true); els.date.focus(); return; }
+
+      els.reportText.value = buildReport();
+      els.report.classList.remove('hidden');
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      els.report.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    /* ---------- Salin & unduh ---------- */
+    $('copyBtn').addEventListener('click', async () => {
+      const text = els.reportText.value;
+      let ok = false;
+      try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      } catch (e) {
+        // Cadangan untuk file lokal / browser lama
+        els.reportText.focus();
+        els.reportText.select();
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+        els.reportText.setSelectionRange(0, 0);
+      }
+      showToast(ok ? 'Teks berhasil disalin!' : 'Gagal menyalin. Tekan lama teks lalu pilih Salin.', !ok);
+    });
+
+    $('downloadBtn').addEventListener('click', () => {
+      const blob = new Blob(['\ufeff' + els.reportText.value], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const meet = String(state.meeting).trim() || 'x';
+      a.href = url;
+      a.download = `presensi-pertemuan-${meet}-${state.date || todayISO()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Rekap berhasil diunduh.');
+    });
+
+    /* ---------- Reset ---------- */
+    $('resetBtn').addEventListener('click', async () => {
+      if (!(await askConfirm('Kembalikan semua mahasiswa ke status Hadir dan hapus keterangan?', 'Reset'))) return;
+      state.students.forEach(s => { s.status = 'hadir'; s.note = ''; });
+      saveState();
+      renderList();
+      renderCounts();
+      els.report.classList.add('hidden');
+      showToast('Semua status dikembalikan ke Hadir.');
+    });
+
+    /* ---------- Label mata kuliah ---------- */
+    function renderCourseLabel() {
+      $('courseLabel').textContent = state.course.trim() || 'Isi mata kuliah';
+    }
+
+    /* ---------- Dialog konfirmasi ---------- */
+    let confirmResolve = null;
+    function askConfirm(message, yesLabel) {
+      return new Promise(resolve => {
+        confirmResolve = resolve;
+        $('confirmText').textContent = message;
+        $('confirmYes').textContent = yesLabel || 'Ya';
+        const box = $('confirmBox');
+        box.classList.remove('hidden');
+        box.classList.add('flex');
+        $('confirmNo').focus();
+      });
+    }
+    function closeConfirm(result) {
+      const box = $('confirmBox');
+      box.classList.add('hidden');
+      box.classList.remove('flex');
+      if (confirmResolve) { const r = confirmResolve; confirmResolve = null; r(result); }
+    }
+    $('confirmYes').addEventListener('click', () => closeConfirm(true));
+    $('confirmNo').addEventListener('click', () => closeConfirm(false));
+    $('confirmBox').addEventListener('click', e => { if (e.target === e.currentTarget) closeConfirm(false); });
+
+    /* ---------- Toast ---------- */
+    let toastTimer;
+    function showToast(msg, isError) {
+      els.toastText.textContent = msg;
+      els.toastText.className = 'rounded-full px-4 py-2 text-sm font-medium text-white shadow-lg ' + (isError ? 'bg-rose-700' : 'bg-slate-900');
+      els.toast.classList.remove('opacity-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => els.toast.classList.add('opacity-0'), 2200);
+    }
+
+    /* ---------- Mulai ---------- */
+    $('course').value = state.course;
+    renderCourseLabel();
+    els.meeting.value = state.meeting;
+    els.date.value = state.date;
+    renderList();
+    renderCounts();
+  </script>
+</body>
+</html>
